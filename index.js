@@ -12,34 +12,34 @@ const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+  apiKey: OPENAI_API_KEY
 });
 
-// ✅ Función para corregir el número de teléfono (formatea correctamente el destinatario)
+// ✅ Formatea correctamente el número destinatario
 function formatPhoneNumber(number) {
   if (number.startsWith('549') && number.length === 13) {
-    const codigoArea = number.slice(3, 6);     // "291"
-    const resto = number.slice(6);             // "4414797"
-    return `54${codigoArea}15${resto}`;        // "54291154414797"
+    const codigoArea = number.slice(3, 6); // "291"
+    const resto = number.slice(6);         // "4414797"
+    return `54${codigoArea}15${resto}`;    // Resultado: "54291154414797"
   }
   return number;
 }
 
-// RUTA PARA VERIFICAR WEBHOOK
+// 📌 Webhook de verificación
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-    console.log('Webhook verificado');
-    res.status(200).send(`${challenge}`);
+    console.log('✅ Webhook verificado');
+    res.status(200).send(challenge);
   } else {
     res.sendStatus(403);
   }
 });
 
-// RUTA PARA ESCUCHAR MENSAJES
+// 📌 Recepción de mensajes
 app.post('/webhook', async (req, res) => {
   console.log("✅ Recibido webhook:", JSON.stringify(req.body, null, 2));
 
@@ -56,15 +56,15 @@ app.post('/webhook', async (req, res) => {
     try {
       const to = formatPhoneNumber(from);
 
-      const aiResponse = await openai.createChatCompletion({
+      const aiResponse = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [
           { role: 'system', content: 'Sos un asistente simpático que responde por WhatsApp.' },
           { role: 'user', content: msgBody }
-        ],
+        ]
       });
 
-      const reply = aiResponse.data.choices[0].message.content;
+      const reply = aiResponse.choices[0].message.content;
 
       const response = await axios.post(
         `https://graph.facebook.com/v19.0/${PHONE_ID}/messages`,
@@ -92,6 +92,7 @@ app.post('/webhook', async (req, res) => {
   res.sendStatus(200);
 });
 
+// 🔊 Start
 app.listen(3001, () => {
-  console.log('Bot escuchando en http://localhost:3001');
+  console.log('🚀 Bot escuchando en http://localhost:3001');
 });
