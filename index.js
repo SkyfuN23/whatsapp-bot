@@ -15,22 +15,10 @@ const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
 // ✅ Formatea correctamente el número destinatario (elimina el "9")
 function formatPhoneNumber(number) {
-  // Convierte 5492914414797 → 542914414797
   if (number.startsWith('549') && number.length === 13) {
-    return '54' + number.slice(3); // elimina el 9
+    return '54' + number.slice(3);
   }
   return number;
-}
-
-// 📌 Verifica si el mensaje contiene medidas válidas
-function calcularPresupuesto(texto) {
-  const match = texto.match(/(\d+)[\s*x×X\-]+(\d+)/);
-  if (!match) return null;
-  const ancho = parseInt(match[1]);
-  const alto = parseInt(match[2]);
-  if (isNaN(ancho) || isNaN(alto)) return null;
-  const precio = ancho * alto * 80000;
-  return `✅ El precio estimado de la cortina es $${precio.toLocaleString("es-AR")}.`;
 }
 
 // 📌 Webhook de verificación
@@ -52,43 +40,50 @@ app.post('/webhook', async (req, res) => {
   const message = entry?.changes?.[0]?.value?.messages?.[0];
 
   if (message && message.text) {
-    const from = message.from; // Ej: 5492914414797
-    const to = formatPhoneNumber(from); // 👉 convierte a 542914414797
+    const from = message.from;
+    const to = formatPhoneNumber(from);
     const msgBody = message.text.body;
 
     console.log("📨 Mensaje:", msgBody);
 
     let reply;
 
-    // 🧮 Detectar medidas tipo "2x2", "2 x 2", "2X2"
-    const match = msgBody.match(/(\d+(?:[.,]\d+)?)[\s*x×X\-]+(\d+(?:[.,]\d+)?)/);
-    if (match) {
-      const ancho = parseFloat(match[1].replace(',', '.'));
-      const alto = parseFloat(match[2].replace(',', '.'));
-      const precio = Math.round(ancho * alto * 80000);
-      reply = `🧾 El precio estimado de tu cortina es $${precio.toLocaleString("es-AR")}.`;
-    } else {
-      // 🤖 Respuesta de IA si no son medidas
-      const aiResponse = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        max_tokens: 100,
-        temperature: 0.7,
-        messages: [
-          {
-            role: 'system',
-            content: `
-Sos JUBOT, un asistente virtual simpático de la empresa Diseño Interior, ubicada en Zelarrayán 376, Bahía Blanca.
-Respondé solo sobre cortinas, presupuestos, showroom, horarios o consultas de productos.
-Si te preguntan cómo te llamás, decí que sos JUBOT.
-Respondé en menos de 40 palabras.
-            `.trim()
-          },
-          { role: 'user', content: msgBody }
-        ]
-      });
+    // 🤖 Respuesta de IA genérica
+    const aiResponse = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      max_tokens: 100,
+      temperature: 0.7,
+      messages: [
+        {
+          role: 'system',
+        content: `
+Sos un asistente virtual del Consultorio 11 de Abril, ubicado en 11 de abril 130, Bahía Blanca.
+Tu tarea es responder preguntas de pacientes sobre estudios, horarios, precios y cómo consultar resultados.
+Debés responder únicamente con la siguiente información:
 
-      reply = aiResponse.choices[0].message.content;
-    }
+- 📍 Dirección: 11 de abril 130 (Bahía Blanca)
+- ⏰ Horario: lunes a viernes de 9 a 19 hs
+- 📋 No se necesita turno. Se atiende por orden de llegada.
+- 🌐 Resultados online: www.11deabril.com
+  - Ingreso: con el DNI como usuario y contraseña (a menos que ya la haya cambiado)
+  
+🧾 Estudios realizados y precios:
+- Panorámica dental: $20.000
+- Tórax frente y perfil (o “f y p”): $15.000
+- Tórax solo frente (o “frente” o “f”): $10.000
+- Tórax solo perfil (o “perfil” o “p”): $9.000
+- Columna: $7.000
+
+Si la pregunta no tiene respuesta en esta información, respondé con amabilidad que debe acercarse al consultorio para más información.
+
+Respondé de forma clara, amable, profesional y en menos de 60 palabras cuando sea posible.
+`.trim()
+        },
+        { role: 'user', content: msgBody }
+      ]
+    });
+
+    reply = aiResponse.choices[0].message.content;
 
     try {
       await axios.post(
