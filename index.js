@@ -1,0 +1,57 @@
+const express = require('express');
+const axios = require('axios');
+require('dotenv').config();
+
+const app = express();
+app.use(express.json());
+
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
+
+// RUTA PARA VERIFICAR WEBHOOK
+app.get('/webhook', (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+    console.log('Webhook verificado');
+    res.status(200).send(challenge);
+  } else {
+    res.sendStatus(403);
+  }
+});
+
+// RUTA PARA ESCUCHAR MENSAJES
+app.post('/webhook', async (req, res) => {
+  const entry = req.body.entry?.[0];
+  const message = entry?.changes?.[0]?.value?.messages?.[0];
+
+  if (message && message.text) {
+    const from = message.from;
+    const msgBody = message.text.body.toLowerCase();
+
+    if (msgBody.includes('hola')) {
+      await axios.post(`https://graph.facebook.com/v19.0/${PHONE_ID}/messages`, {
+        messaging_product: 'whatsapp',
+        to: from,
+        type: 'text',
+        text: {
+          body: `👋 BIENVENIDO SELECCIONE ALGUNA DE LAS OPCIONES:\n1️⃣ CONTACTAR ASESOR\n2️⃣ SABER HORARIOS\n3️⃣ SABER UBICACIONES`
+        }
+      }, {
+        headers: {
+          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+          'Content-Type': 'application/json',
+        }
+      });
+    }
+  }
+
+  res.sendStatus(200);
+});
+
+app.listen(3001, () => {
+  console.log('Bot escuchando en http://localhost:3001');
+});
