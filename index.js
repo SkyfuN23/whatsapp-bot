@@ -17,7 +17,9 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
-// ✅ Formatea correctamente el número destinatario (elimina el "9")
+const INBOX_FILE = './inbox.json';
+const CHAT_FILE = './conversaciones.json';
+
 function formatPhoneNumber(number) {
   if (number.startsWith('549') && number.length === 13) {
     return '54' + number.slice(3);
@@ -25,34 +27,31 @@ function formatPhoneNumber(number) {
   return number;
 }
 
-// 📌 Guarda una consulta derivada en inbox.json
 function guardarDerivacion(data) {
-  const path = './inbox.json';
   let historial = [];
-  try {
-    if (fs.existsSync(path)) {
-      historial = JSON.parse(fs.readFileSync(path));
-    }
-  } catch (err) {
-    console.error('❌ Error al leer inbox.json:', err);
+  if (fs.existsSync(INBOX_FILE)) {
+    historial = JSON.parse(fs.readFileSync(INBOX_FILE));
   }
-
-  // Evitar duplicados
   if (!historial.find(e => e.numero === data.numero)) {
     historial.push(data);
+    fs.writeFileSync(INBOX_FILE, JSON.stringify(historial, null, 2));
   }
+  guardarMensaje(data.numero, 'usuario', data.mensaje);
+}
 
-  try {
-    fs.writeFileSync(path, JSON.stringify(historial, null, 2));
-    console.log('📝 Consulta guardada en inbox.json');
-  } catch (err) {
-    console.error('❌ Error al escribir inbox.json:', err);
+function guardarMensaje(numero, remitente, texto) {
+  let chats = {};
+  if (fs.existsSync(CHAT_FILE)) {
+    chats = JSON.parse(fs.readFileSync(CHAT_FILE));
   }
+  if (!chats[numero]) chats[numero] = [];
+  chats[numero].push({ remitente, texto, hora: new Date().toLocaleTimeString() });
+  fs.writeFileSync(CHAT_FILE, JSON.stringify(chats, null, 2));
 }
 
 function estaDerivado(numero) {
   try {
-    const data = JSON.parse(fs.readFileSync('./inbox.json'));
+    const data = JSON.parse(fs.readFileSync(INBOX_FILE));
     return data.some(e => e.numero === numero);
   } catch {
     return false;
@@ -61,16 +60,21 @@ function estaDerivado(numero) {
 
 function eliminarDerivado(numero) {
   try {
-    const data = JSON.parse(fs.readFileSync('./inbox.json'));
+    const data = JSON.parse(fs.readFileSync(INBOX_FILE));
     const actualizado = data.filter(e => e.numero !== numero);
-    fs.writeFileSync('./inbox.json', JSON.stringify(actualizado, null, 2));
+    fs.writeFileSync(INBOX_FILE, JSON.stringify(actualizado, null, 2));
+    let chats = {};
+    if (fs.existsSync(CHAT_FILE)) {
+      chats = JSON.parse(fs.readFileSync(CHAT_FILE));
+      delete chats[numero];
+      fs.writeFileSync(CHAT_FILE, JSON.stringify(chats, null, 2));
+    }
     return true;
   } catch {
     return false;
   }
 }
 
-// 📌 Webhook de verificación
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
@@ -83,7 +87,6 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// 📥 Recepción de mensajes
 app.post('/webhook', async (req, res) => {
   const entry = req.body.entry?.[0];
   const message = entry?.changes?.[0]?.value?.messages?.[0];
@@ -97,8 +100,8 @@ app.post('/webhook', async (req, res) => {
 
     let reply;
 
-    // 👉 Si está en lista de asesoría, no usar IA
     if (estaDerivado(from)) {
+      guardarMensaje(from, 'usuario', msgBody);
       console.log("⏸️ Usuario derivado, IA desactivada para:", from);
       return res.sendStatus(200);
     }
@@ -107,12 +110,7 @@ app.post('/webhook', async (req, res) => {
 
     if (quiereAsesor) {
       reply = "Derivo tu consulta a una persona del equipo. En breve se contactará con vos 😊";
-
-      guardarDerivacion({
-        numero: from,
-        mensaje: msgBody,
-        fecha: new Date().toISOString()
-      });
+      guardarDerivacion({ numero: from, mensaje: msgBody, fecha: new Date().toISOString() });
     } else {
       const aiResponse = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
@@ -153,7 +151,6 @@ Respondé de forma clara, amable, profesional y en menos de 60 palabras cuando s
 
       if (reply.toLowerCase().includes("derivo tu consulta a una persona")) {
         guardarDerivacion({ numero: from, mensaje: msgBody, fecha: new Date().toISOString() });
-        console.log("🆘 DERIVACIÓN A ASESOR (por IA)");
       }
     }
 
@@ -182,27 +179,27 @@ Respondé de forma clara, amable, profesional y en menos de 60 palabras cuando s
   res.sendStatus(200);
 });
 
-// 📤 Ver y responder consultas derivadas desde navegador
 app.get('/panel', (req, res) => {
-  const data = fs.existsSync('./inbox.json') ? JSON.parse(fs.readFileSync('./inbox.json')) : [];
+  const data = fs.existsSync(INBOX_FILE) ? JSON.parse(fs.readFileSync(INBOX_FILE)) : [];
+  const chats = fs.existsSync(CHAT_FILE) ? JSON.parse(fs.readFileSync(CHAT_FILE)) : {};
 
-  let html = `
-    <html><head><title>Panel</title></head><body>
-    <h2>📥 Consultas derivadas</h2>
-    <form method="POST" action="/responder">
-  `;
+  let html = `<html><head><title>Panel</title></head><body><h2>📥 Consultas derivadas</h2><form method="POST" action="/responder">`;
 
-  data.forEach((item, i) => {
+  data.forEach((item) => {
+    html += `<div style="border:1px solid #ccc; padding:10px; margin:10px">
+      <p><strong>${item.numero}</strong></p>`;
+
+    const historial = chats[item.numero] || [];
+    historial.forEach(msg => {
+      html += `<p><b>${msg.remitente}:</b> ${msg.texto} <i>${msg.hora}</i></p>`;
+    });
+
     html += `
-      <div style="border:1px solid #ccc; padding:10px; margin:10px">
-        <p><strong>${item.numero}</strong></p>
-        <p>${item.mensaje}</p>
-        <textarea name="mensaje" rows="2" cols="40" placeholder="Escribir respuesta..."></textarea>
-        <input type="hidden" name="numero" value="${item.numero}" />
-        <button type="submit">Responder</button>
-        <button formaction="/liberar" formmethod="POST" name="numero" value="${item.numero}" style="margin-left:10px">Cerrar chat</button>
-      </div>
-    `;
+      <textarea name="mensaje" rows="2" cols="40" placeholder="Escribir respuesta..."></textarea>
+      <input type="hidden" name="numero" value="${item.numero}" />
+      <button type="submit">Responder</button>
+      <button formaction="/liberar" formmethod="POST" name="numero" value="${item.numero}" style="margin-left:10px">Cerrar chat</button>
+    </div>`;
   });
 
   html += `</form></body></html>`;
@@ -228,6 +225,7 @@ app.post('/responder', async (req, res) => {
         }
       }
     );
+    guardarMensaje(numero, 'asesor', mensaje);
     console.log("📨 Respuesta manual enviada a:", to);
   } catch (err) {
     console.error("❌ Error al enviar manual:", err.response?.data || err.message);
@@ -242,7 +240,6 @@ app.post('/liberar', (req, res) => {
   res.redirect('/panel');
 });
 
-// 🚀 Start
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`🟢 BOT activo en http://localhost:${PORT}`);
