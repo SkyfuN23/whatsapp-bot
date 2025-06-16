@@ -236,8 +236,11 @@ app.post('/liberar', async (req, res) => {
   const numero = String(req.body.numero);
   const to = formatPhoneNumber(numero);
 
+  console.log("🔍 Debug - Número original:", numero);
+  console.log("🔍 Debug - Número formateado para envío:", to);
+
+  // Intentar enviar mensaje de cierre
   try {
-    // Enviar mensaje de cierre
     await axios.post(
       `https://graph.facebook.com/v19.0/${PHONE_ID}/messages`,
       {
@@ -254,17 +257,17 @@ app.post('/liberar', async (req, res) => {
       }
     );
     
-    // Guardar el mensaje de cierre en el historial
     guardarMensaje(numero, 'asesor', 'EL CHAT HA FINALIZADO');
     console.log("📴 Mensaje de cierre enviado a:", to);
     
-    // Eliminar el usuario derivado (esto prende la IA de nuevo y quita el chat del panel)
-    const ok = eliminarDerivado(numero);
-    console.log(ok ? "🟢 Chat cerrado para:" : "⚠️ No se encontró número:", numero);
-    
   } catch (err) {
     console.error("❌ Error al enviar mensaje de cierre:", err.response?.data || err.message);
+    console.log("⚠️ Continuando con el cierre del chat aunque falló el envío del mensaje");
   }
+
+  // SIEMPRE eliminar el derivado, independientemente de si se envió o no el mensaje
+  const ok = eliminarDerivado(numero);
+  console.log(ok ? "🟢 Chat cerrado para:" : "⚠️ No se encontró número:", numero);
 
   res.redirect('/panel');
 });
