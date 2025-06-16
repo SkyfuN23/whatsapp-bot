@@ -1,6 +1,6 @@
 const express = require('express');
 const axios = require('axios');
-const { Configuration, OpenAIApi } = require('openai');
+const OpenAI = require('openai');
 require('dotenv').config();
 
 const app = express();
@@ -11,9 +11,9 @@ const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-const openai = new OpenAIApi(new Configuration({
-  apiKey: OPENAI_API_KEY,
-}));
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 // ✅ Función para corregir el número de teléfono (formatea correctamente el destinatario)
 function formatPhoneNumber(number) {
