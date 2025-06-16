@@ -35,31 +35,40 @@ app.post('/webhook', async (req, res) => {
     const from = message.from;
     const msgBody = message.text.body.toLowerCase();
 
+    console.log("📨 Mensaje recibido de:", from);
+    console.log("📝 Contenido:", msgBody);
+
     if (msgBody.includes('hola')) {
       try {
-        await axios.post(`https://graph.facebook.com/v19.0/${PHONE_ID}/messages`, {
-          messaging_product: 'whatsapp',
-          to: from,
-          type: 'text',
-          text: {
-            body: `👋 BIENVENIDO SELECCIONE ALGUNA DE LAS OPCIONES:\n1️⃣ CONTACTAR ASESOR\n2️⃣ SABER HORARIOS\n3️⃣ SABER UBICACIONES`
+        const response = await axios.post(
+          `https://graph.facebook.com/v19.0/${PHONE_ID}/messages`,
+          {
+            messaging_product: 'whatsapp',
+            to: from, // 👈 Confirmá que esté bien formateado, ej: "5492914414797"
+            type: 'text',
+            text: {
+              body: `👋 BIENVENIDO SELECCIONE ALGUNA DE LAS OPCIONES:\n1️⃣ CONTACTAR ASESOR\n2️⃣ SABER HORARIOS\n3️⃣ SABER UBICACIONES`
+            }
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+              'Content-Type': 'application/json',
+            }
           }
-        }, {
-          headers: {
-            Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-            'Content-Type': 'application/json',
-          }
-        });
+        );
+
+        console.log("✅ Mensaje enviado:", response.data);
       } catch (error) {
         console.error("❌ Error al enviar mensaje:");
         console.error(error.response?.data || error.message);
       }
-
     }
   }
 
   res.sendStatus(200);
 });
+
 
 app.listen(3001, () => {
   console.log('Bot escuchando en http://localhost:3001');
