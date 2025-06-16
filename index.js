@@ -70,7 +70,7 @@ app.post('/webhook', async (req, res) => {
         `https://graph.facebook.com/v19.0/${PHONE_ID}/messages`,
         {
           messaging_product: 'whatsapp',
-          to,
+          to: '542914414797',
           type: 'text',
           text: { body: reply }
         },
