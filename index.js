@@ -123,6 +123,17 @@ Respondé de forma clara, amable, profesional y en menos de 60 palabras cuando s
       });
 
       reply = aiResponse.choices[0].message.content;
+      // 🔍 Si la IA derivó al equipo, también guardamos
+if (reply.toLowerCase().includes("derivo tu consulta a una persona")) {
+  const derivado = {
+    numero: from,
+    mensaje: msgBody,
+    fecha: new Date().toISOString()
+  };
+  guardarDerivacion(derivado);
+  console.log("🆘 DERIVACIÓN A ASESOR (por IA)", derivado);
+}
+
     }
 
     try {
