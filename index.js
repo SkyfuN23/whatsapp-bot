@@ -9,6 +9,14 @@ const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
 
+// ✅ Función para corregir el número de teléfono (elimina el "9" después de "54")
+function formatPhoneNumber(number) {
+  if (number.startsWith('549') && number.length === 13) {
+    return '54' + number.slice(3); // convierte 549291XXXXXXX en 542911XXXXXXX
+  }
+  return number;
+}
+
 // RUTA PARA VERIFICAR WEBHOOK
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
@@ -18,7 +26,6 @@ app.get('/webhook', (req, res) => {
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
     console.log('Webhook verificado');
     res.status(200).send(`${challenge}`);
-
   } else {
     res.sendStatus(403);
   }
@@ -40,11 +47,13 @@ app.post('/webhook', async (req, res) => {
 
     if (msgBody.includes('hola')) {
       try {
+        const to = formatPhoneNumber(from);
+
         const response = await axios.post(
           `https://graph.facebook.com/v19.0/${PHONE_ID}/messages`,
           {
             messaging_product: 'whatsapp',
-            to: "54291154414797", // Confirmá que esté bien formateado, ej: "5492914414797"
+            to,
             type: 'text',
             text: {
               body: `👋 BIENVENIDO SELECCIONE ALGUNA DE LAS OPCIONES:\n1️⃣ CONTACTAR ASESOR\n2️⃣ SABER HORARIOS\n3️⃣ SABER UBICACIONES`
@@ -68,7 +77,6 @@ app.post('/webhook', async (req, res) => {
 
   res.sendStatus(200);
 });
-
 
 app.listen(3001, () => {
   console.log('Bot escuchando en http://localhost:3001');
