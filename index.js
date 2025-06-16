@@ -132,9 +132,9 @@ Debés responder únicamente con la siguiente información:
 
 🧾 Estudios realizados y precios:
 - Panorámica dental: $20.000
-- Tórax frente y perfil (o “f y p”): $15.000
-- Tórax solo frente (o “frente” o “f”): $10.000
-- Tórax solo perfil (o “perfil” o “p”): $9.000
+- Tórax frente y perfil (o "f y p"): $15.000
+- Tórax solo frente (o "frente" o "f"): $10.000
+- Tórax solo perfil (o "perfil" o "p"): $9.000
 - Columna: $7.000
 
 Si la pregunta no tiene respuesta en esta información, respondé:
@@ -237,13 +237,14 @@ app.post('/liberar', async (req, res) => {
   const to = formatPhoneNumber(numero);
 
   try {
+    // Enviar mensaje de cierre
     await axios.post(
       `https://graph.facebook.com/v19.0/${PHONE_ID}/messages`,
       {
         messaging_product: 'whatsapp',
         to,
         type: 'text',
-        text: { body: '✅ Chat finalizado. ¡Gracias por tu consulta!' }
+        text: { body: 'EL CHAT HA FINALIZADO' }
       },
       {
         headers: {
@@ -252,14 +253,19 @@ app.post('/liberar', async (req, res) => {
         }
       }
     );
-    guardarMensaje(numero, 'asesor', '✅ Chat finalizado. ¡Gracias por tu consulta!');
+    
+    // Guardar el mensaje de cierre en el historial
+    guardarMensaje(numero, 'asesor', 'EL CHAT HA FINALIZADO');
     console.log("📴 Mensaje de cierre enviado a:", to);
+    
+    // Eliminar el usuario derivado (esto prende la IA de nuevo y quita el chat del panel)
+    const ok = eliminarDerivado(numero);
+    console.log(ok ? "🟢 Chat cerrado para:" : "⚠️ No se encontró número:", numero);
+    
   } catch (err) {
     console.error("❌ Error al enviar mensaje de cierre:", err.response?.data || err.message);
   }
 
-  const ok = eliminarDerivado(numero);
-  console.log(ok ? "🟢 Chat cerrado para:" : "⚠️ No se encontró número:", numero);
   res.redirect('/panel');
 });
 
