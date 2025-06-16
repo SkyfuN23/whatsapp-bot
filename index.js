@@ -44,7 +44,7 @@ app.post('/webhook', async (req, res) => {
           `https://graph.facebook.com/v19.0/${PHONE_ID}/messages`,
           {
             messaging_product: 'whatsapp',
-            to: 5492914414797, // 👈 Confirmá que esté bien formateado, ej: "5492914414797"
+            to: "5492914414797", // Confirmá que esté bien formateado, ej: "5492914414797"
             type: 'text',
             text: {
               body: `👋 BIENVENIDO SELECCIONE ALGUNA DE LAS OPCIONES:\n1️⃣ CONTACTAR ASESOR\n2️⃣ SABER HORARIOS\n3️⃣ SABER UBICACIONES`
