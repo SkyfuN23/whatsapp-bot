@@ -1,4 +1,4 @@
-// 📁 archivo: app.js
+// 📁 archivo: index.js
 
 const express = require('express');
 const fs = require('fs');
@@ -8,6 +8,7 @@ require('dotenv').config();
 
 const app = express();
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
@@ -36,13 +37,36 @@ function guardarDerivacion(data) {
     console.error('❌ Error al leer inbox.json:', err);
   }
 
-  historial.push(data);
+  // Evitar duplicados
+  if (!historial.find(e => e.numero === data.numero)) {
+    historial.push(data);
+  }
 
   try {
     fs.writeFileSync(path, JSON.stringify(historial, null, 2));
     console.log('📝 Consulta guardada en inbox.json');
   } catch (err) {
     console.error('❌ Error al escribir inbox.json:', err);
+  }
+}
+
+function estaDerivado(numero) {
+  try {
+    const data = JSON.parse(fs.readFileSync('./inbox.json'));
+    return data.some(e => e.numero === numero);
+  } catch {
+    return false;
+  }
+}
+
+function eliminarDerivado(numero) {
+  try {
+    const data = JSON.parse(fs.readFileSync('./inbox.json'));
+    const actualizado = data.filter(e => e.numero !== numero);
+    fs.writeFileSync('./inbox.json', JSON.stringify(actualizado, null, 2));
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -73,19 +97,22 @@ app.post('/webhook', async (req, res) => {
 
     let reply;
 
+    // 👉 Si está en lista de asesoría, no usar IA
+    if (estaDerivado(from)) {
+      console.log("⏸️ Usuario derivado, IA desactivada para:", from);
+      return res.sendStatus(200);
+    }
+
     const quiereAsesor = /asesor|humano|persona|hablar con alguien|me atiende/i.test(msgBody.toLowerCase());
 
     if (quiereAsesor) {
       reply = "Derivo tu consulta a una persona del equipo. En breve se contactará con vos 😊";
 
-      const derivado = {
+      guardarDerivacion({
         numero: from,
         mensaje: msgBody,
         fecha: new Date().toISOString()
-      };
-      guardarDerivacion(derivado);
-
-      console.log("🆘 DERIVACIÓN A ASESOR", derivado);
+      });
     } else {
       const aiResponse = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
@@ -123,17 +150,11 @@ Respondé de forma clara, amable, profesional y en menos de 60 palabras cuando s
       });
 
       reply = aiResponse.choices[0].message.content;
-      // 🔍 Si la IA derivó al equipo, también guardamos
-if (reply.toLowerCase().includes("derivo tu consulta a una persona")) {
-  const derivado = {
-    numero: from,
-    mensaje: msgBody,
-    fecha: new Date().toISOString()
-  };
-  guardarDerivacion(derivado);
-  console.log("🆘 DERIVACIÓN A ASESOR (por IA)", derivado);
-}
 
+      if (reply.toLowerCase().includes("derivo tu consulta a una persona")) {
+        guardarDerivacion({ numero: from, mensaje: msgBody, fecha: new Date().toISOString() });
+        console.log("🆘 DERIVACIÓN A ASESOR (por IA)");
+      }
     }
 
     try {
@@ -161,54 +182,68 @@ if (reply.toLowerCase().includes("derivo tu consulta a una persona")) {
   res.sendStatus(200);
 });
 
-// 📤 Ver consultas derivadas desde el navegador
-app.get('/inbox', (req, res) => {
-  const path = './inbox.json';
+// 📤 Ver y responder consultas derivadas desde navegador
+app.get('/panel', (req, res) => {
+  const data = fs.existsSync('./inbox.json') ? JSON.parse(fs.readFileSync('./inbox.json')) : [];
 
-  try {
-    const data = fs.readFileSync(path);
-    const lista = JSON.parse(data);
+  let html = `
+    <html><head><title>Panel</title></head><body>
+    <h2>📥 Consultas derivadas</h2>
+    <form method="POST" action="/responder">
+  `;
 
-    let html = `
-      <html>
-        <head>
-          <title>Consultas derivadas</title>
-          <style>
-            body { font-family: sans-serif; padding: 20px; background: #f8f8f8; }
-            h1 { color: #222; }
-            .card { background: #fff; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-            .card p { margin: 5px 0; }
-            .small { color: gray; font-size: 0.9em; }
-          </style>
-        </head>
-        <body>
-          <h1>📥 Consultas derivadas</h1>
+  data.forEach((item, i) => {
+    html += `
+      <div style="border:1px solid #ccc; padding:10px; margin:10px">
+        <p><strong>${item.numero}</strong></p>
+        <p>${item.mensaje}</p>
+        <textarea name="mensaje" rows="2" cols="40" placeholder="Escribir respuesta..."></textarea>
+        <input type="hidden" name="numero" value="${item.numero}" />
+        <button type="submit">Responder</button>
+        <button formaction="/liberar" formmethod="POST" name="numero" value="${item.numero}" style="margin-left:10px">Cerrar chat</button>
+      </div>
     `;
+  });
 
-    if (lista.length === 0) {
-      html += `<p>No hay mensajes pendientes 😊</p>`;
-    } else {
-      lista.reverse().forEach((item, i) => {
-        html += `
-          <div class="card">
-            <p><strong>#${i + 1}</strong></p>
-            <p><strong>Número:</strong> ${item.numero}</p>
-            <p><strong>Mensaje:</strong> ${item.mensaje}</p>
-            <p class="small">🕒 ${new Date(item.fecha).toLocaleString()}</p>
-          </div>
-        `;
-      });
-    }
-
-    html += `</body></html>`;
-    res.send(html);
-  } catch (err) {
-    res.status(500).send('Error al leer inbox.json');
-  }
+  html += `</form></body></html>`;
+  res.send(html);
 });
 
+app.post('/responder', async (req, res) => {
+  const { numero, mensaje } = req.body;
+  const to = formatPhoneNumber(numero);
+  try {
+    await axios.post(
+      `https://graph.facebook.com/v19.0/${PHONE_ID}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to,
+        type: 'text',
+        text: { body: mensaje }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+    console.log("📨 Respuesta manual enviada a:", to);
+  } catch (err) {
+    console.error("❌ Error al enviar manual:", err.response?.data || err.message);
+  }
+  res.redirect('/panel');
+});
+
+app.post('/liberar', (req, res) => {
+  const numero = req.body.numero;
+  const ok = eliminarDerivado(numero);
+  console.log(ok ? "🟢 Chat cerrado para:" : "⚠️ No se encontró número:", numero);
+  res.redirect('/panel');
+});
 
 // 🚀 Start
-app.listen(3001, () => {
-  console.log('🟢 BOT activo en http://localhost:3001');
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`🟢 BOT activo en http://localhost:${PORT}`);
 });
