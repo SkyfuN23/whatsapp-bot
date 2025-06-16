@@ -26,6 +26,8 @@ app.get('/webhook', (req, res) => {
 
 // RUTA PARA ESCUCHAR MENSAJES
 app.post('/webhook', async (req, res) => {
+  console.log("✅ Recibido webhook:", JSON.stringify(req.body, null, 2));
+
   const entry = req.body.entry?.[0];
   const message = entry?.changes?.[0]?.value?.messages?.[0];
 
