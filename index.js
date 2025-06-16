@@ -96,7 +96,7 @@ Respondé en menos de 40 palabras.
         `https://graph.facebook.com/v19.0/${PHONE_ID}/messages`,
         {
           messaging_product: 'whatsapp',
-          to,
+          to:'542914414797',
           type: 'text',
           text: { body: reply }
         },
