@@ -2,9 +2,9 @@
   "name": "whatsapp-bot",
   "version": "1.0.0",
   "main": "index.js",
-"scripts": {
-  "start": "node index.js"
-},
+  "scripts": {
+    "start": "node index.js"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/SkyfuN23/whatsapp-bot.git"
@@ -17,5 +17,10 @@
     "url": "https://github.com/SkyfuN23/whatsapp-bot/issues"
   },
   "homepage": "https://github.com/SkyfuN23/whatsapp-bot#readme",
-  "description": ""
+  "description": "",
+  "dependencies": {
+    "axios": "^1.10.0",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0"
+  }
 }
