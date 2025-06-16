@@ -61,32 +61,36 @@ app.post('/webhook', async (req, res) => {
 
     let reply;
 
-    // 🧮 Si detecta medidas, calcula presupuesto
-    const presupuesto = calcularPresupuesto(msgBody);
-    if (presupuesto) {
-      reply = presupuesto;
+    // 🧮 Detectar medidas tipo "2x2", "2 x 2", "2X2"
+    const match = msgBody.match(/(\d+(?:[.,]\d+)?)[\s*x×X\-]+(\d+(?:[.,]\d+)?)/);
+    if (match) {
+      const ancho = parseFloat(match[1].replace(',', '.'));
+      const alto = parseFloat(match[2].replace(',', '.'));
+      const precio = Math.round(ancho * alto * 80000);
+      reply = `🧾 El precio estimado de tu cortina es $${precio.toLocaleString("es-AR")}.`;
     } else {
-      // 🤖 Llamada a la IA para respuestas breves y baratas
+      // 🤖 Respuesta de IA si no son medidas
       const aiResponse = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
-        max_tokens: 100, // 🔥 límite bajo para ahorrar
+        max_tokens: 100,
         temperature: 0.7,
         messages: [
           {
             role: 'system',
             content: `
-Sos JUBOT, asistente virtual de Diseño Interior Bahía Blanca (Zelarrayán 376).
-Respondé solo sobre cortinas, presupuestos, horarios y productos. Nada más.
-Sé breve, concreto, simpático. Máximo 40 palabras.
+Sos JUBOT, un asistente virtual simpático de la empresa Diseño Interior, ubicada en Zelarrayán 376, Bahía Blanca.
+Respondé solo sobre cortinas, presupuestos, showroom, horarios o consultas de productos.
+Si te preguntan cómo te llamás, decí que sos JUBOT.
+Respondé en menos de 40 palabras.
             `.trim()
           },
           { role: 'user', content: msgBody }
         ]
       });
+
       reply = aiResponse.choices[0].message.content;
     }
 
-    // 📤 Envío por WhatsApp
     try {
       await axios.post(
         `https://graph.facebook.com/v19.0/${PHONE_ID}/messages`,
