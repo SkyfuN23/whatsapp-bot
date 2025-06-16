@@ -119,8 +119,7 @@ app.post('/webhook', async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: `
-Sos un asistente virtual del Consultorio 11 de Abril, ubicado en 11 de abril 130, Bahía Blanca.
+            content: `Sos un asistente virtual del Consultorio 11 de Abril, ubicado en 11 de abril 130, Bahía Blanca.
 Tu tarea es responder preguntas de pacientes sobre estudios, horarios, precios y cómo consultar resultados.
 Debés responder únicamente con la siguiente información:
 
@@ -140,8 +139,7 @@ Debés responder únicamente con la siguiente información:
 Si la pregunta no tiene respuesta en esta información, respondé:
 "Derivo tu consulta a una persona del equipo. En breve se contactará con vos 😊"
 
-Respondé de forma clara, amable, profesional y en menos de 60 palabras cuando sea posible.
-            `.trim()
+Respondé de forma clara, amable, profesional y en menos de 60 palabras cuando sea posible.`.trim()
           },
           { role: 'user', content: msgBody }
         ]
@@ -233,8 +231,31 @@ app.post('/responder', async (req, res) => {
   res.redirect('/panel');
 });
 
-app.post('/liberar', (req, res) => {
+app.post('/liberar', async (req, res) => {
   const numero = req.body.numero;
+  const to = formatPhoneNumber(numero);
+
+  try {
+    await axios.post(
+      `https://graph.facebook.com/v19.0/${PHONE_ID}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to,
+        type: 'text',
+        text: { body: '✅ Chat finalizado. ¡Gracias por tu consulta!' }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+    console.log("📴 Mensaje de cierre enviado a:", to);
+  } catch (err) {
+    console.error("❌ Error al enviar mensaje de cierre:", err.response?.data || err.message);
+  }
+
   const ok = eliminarDerivado(numero);
   console.log(ok ? "🟢 Chat cerrado para:" : "⚠️ No se encontró número:", numero);
   res.redirect('/panel');
