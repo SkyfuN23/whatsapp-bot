@@ -12,10 +12,13 @@ const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
 // ✅ Función para corregir el número de teléfono (elimina el "9" después de "54")
 function formatPhoneNumber(number) {
   if (number.startsWith('549') && number.length === 13) {
-    return '54' + number.slice(3); // convierte 549291XXXXXXX en 542911XXXXXXX
+    const codigoArea = number.slice(3, 6);     // "291"
+    const resto = number.slice(6);             // "4414797"
+    return `54${codigoArea}15${resto}`;        // "54291154414797"
   }
   return number;
 }
+
 
 // RUTA PARA VERIFICAR WEBHOOK
 app.get('/webhook', (req, res) => {
