@@ -196,11 +196,17 @@ app.get('/panel', (req, res) => {
     html += `
       <textarea name="mensaje" rows="2" cols="40" placeholder="Escribir respuesta..."></textarea>
       <input type="hidden" name="numero" value="${item.numero}" />
-      <button type="submit">Responder</button>
+<form method="POST" action="/responder">
+  <textarea name="mensaje" rows="2" cols="40" placeholder="Escribir respuesta..."></textarea>
+  <input type="hidden" name="numero" value="${item.numero}" />
+  <button type="submit">Responder</button>
+</form>
+
 <form method="POST" action="/liberar" style="display:inline">
   <input type="hidden" name="numero" value="${item.numero}" />
   <button type="submit" style="margin-left:10px">Cerrar chat</button>
 </form>
+
     </div>`;
   });
 
