@@ -1,6 +1,5 @@
 const express = require('express');
 const axios = require('axios');
-const { Configuration, OpenAIApi } = require('openai');
 require('dotenv').config();
 
 const app = express();
@@ -9,13 +8,8 @@ app.use(express.json());
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-const openai = new OpenAIApi(new Configuration({
-  apiKey: OPENAI_API_KEY,
-}));
-
-// ✅ Función para corregir el número de teléfono (formatea correctamente el destinatario)
+// ✅ Función para corregir el número de teléfono (elimina el "9" después de "54")
 function formatPhoneNumber(number) {
   if (number.startsWith('549') && number.length === 13) {
     const codigoArea = number.slice(3, 6);     // "291"
@@ -24,6 +18,7 @@ function formatPhoneNumber(number) {
   }
   return number;
 }
+
 
 // RUTA PARA VERIFICAR WEBHOOK
 app.get('/webhook', (req, res) => {
@@ -48,44 +43,38 @@ app.post('/webhook', async (req, res) => {
 
   if (message && message.text) {
     const from = message.from;
-    const msgBody = message.text.body;
+    const msgBody = message.text.body.toLowerCase();
 
     console.log("📨 Mensaje recibido de:", from);
     console.log("📝 Contenido:", msgBody);
 
-    try {
-      const to = formatPhoneNumber(from);
+    if (msgBody.includes('hola')) {
+      try {
+        const to = formatPhoneNumber(from);
 
-      const aiResponse = await openai.createChatCompletion({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          { role: 'system', content: 'Sos un asistente simpático que responde por WhatsApp.' },
-          { role: 'user', content: msgBody }
-        ],
-      });
-
-      const reply = aiResponse.data.choices[0].message.content;
-
-      const response = await axios.post(
-        `https://graph.facebook.com/v19.0/${PHONE_ID}/messages`,
-        {
-          messaging_product: 'whatsapp',
-          to,
-          type: 'text',
-          text: { body: reply }
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-            'Content-Type': 'application/json',
+        const response = await axios.post(
+          `https://graph.facebook.com/v19.0/${PHONE_ID}/messages`,
+          {
+            messaging_product: 'whatsapp',
+            to,
+            type: 'text',
+            text: {
+              body: `👋 BIENVENIDO SELECCIONE ALGUNA DE LAS OPCIONES:\n1️⃣ CONTACTAR ASESOR\n2️⃣ SABER HORARIOS\n3️⃣ SABER UBICACIONES`
+            }
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+              'Content-Type': 'application/json',
+            }
           }
-        }
-      );
+        );
 
-      console.log("✅ Mensaje enviado:", response.data);
-    } catch (error) {
-      console.error("❌ Error al responder con IA o enviar mensaje:");
-      console.error(error.response?.data || error.message);
+        console.log("✅ Mensaje enviado:", response.data);
+      } catch (error) {
+        console.error("❌ Error al enviar mensaje:");
+        console.error(error.response?.data || error.message);
+      }
     }
   }
 
