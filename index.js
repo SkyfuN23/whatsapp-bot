@@ -13,14 +13,14 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
-// ✅ Formatea correctamente el número destinatario
+// ✅ Formatea correctamente el número destinatario (elimina el "9")
 function formatPhoneNumber(number) {
-  if (number.startsWith('54') && !number.startsWith('549')) {
-    return '549' + number.slice(2); // Reemplaza el 54 por 549
+  // Convierte 5492914414797 → 542914414797
+  if (number.startsWith('549') && number.length === 13) {
+    return '54' + number.slice(3); // elimina el 9
   }
   return number;
 }
-
 
 // 📌 Verifica si el mensaje contiene medidas válidas
 function calcularPresupuesto(texto) {
@@ -52,9 +52,9 @@ app.post('/webhook', async (req, res) => {
   const message = entry?.changes?.[0]?.value?.messages?.[0];
 
   if (message && message.text) {
-    const from = message.from;
+    const from = message.from; // Ej: 5492914414797
+    const to = formatPhoneNumber(from); // 👉 convierte a 542914414797
     const msgBody = message.text.body;
-    const to = formatPhoneNumber(from);
 
     console.log("📨 Mensaje:", msgBody);
 
@@ -106,7 +106,7 @@ Respondé en menos de 40 palabras.
           }
         }
       );
-      console.log("✅ Mensaje enviado");
+      console.log("✅ Mensaje enviado a:", to);
     } catch (err) {
       console.error("❌ Error al enviar:", err.response?.data || err.message);
     }
