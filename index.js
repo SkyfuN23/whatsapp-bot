@@ -21,6 +21,7 @@ const INBOX_FILE = './inbox.json';
 const CHAT_FILE = './conversaciones.json';
 
 function formatPhoneNumber(number) {
+  number = String(number);
   if (number.startsWith('549') && number.length === 13) {
     return '54' + number.slice(3);
   }
@@ -232,7 +233,7 @@ app.post('/responder', async (req, res) => {
 });
 
 app.post('/liberar', async (req, res) => {
-  const numero = req.body.numero;
+  const numero = String(req.body.numero);
   const to = formatPhoneNumber(numero);
 
   try {
