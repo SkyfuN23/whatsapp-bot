@@ -252,6 +252,7 @@ app.post('/liberar', async (req, res) => {
         }
       }
     );
+    guardarMensaje(numero, 'asesor', '✅ Chat finalizado. ¡Gracias por tu consulta!');
     console.log("📴 Mensaje de cierre enviado a:", to);
   } catch (err) {
     console.error("❌ Error al enviar mensaje de cierre:", err.response?.data || err.message);
