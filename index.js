@@ -17,7 +17,7 @@ app.get('/webhook', (req, res) => {
 
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
     console.log('Webhook verificado');
-res.status(200).send(`${challenge}`);
+    res.status(200).send(`${challenge}`);
 
   } else {
     res.sendStatus(403);
@@ -34,19 +34,25 @@ app.post('/webhook', async (req, res) => {
     const msgBody = message.text.body.toLowerCase();
 
     if (msgBody.includes('hola')) {
-      await axios.post(`https://graph.facebook.com/v19.0/${PHONE_ID}/messages`, {
-        messaging_product: 'whatsapp',
-        to: from,
-        type: 'text',
-        text: {
-          body: `👋 BIENVENIDO SELECCIONE ALGUNA DE LAS OPCIONES:\n1️⃣ CONTACTAR ASESOR\n2️⃣ SABER HORARIOS\n3️⃣ SABER UBICACIONES`
-        }
-      }, {
-        headers: {
-          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-          'Content-Type': 'application/json',
-        }
-      });
+      try {
+        await axios.post(`https://graph.facebook.com/v19.0/${PHONE_ID}/messages`, {
+          messaging_product: 'whatsapp',
+          to: from,
+          type: 'text',
+          text: {
+            body: `👋 BIENVENIDO SELECCIONE ALGUNA DE LAS OPCIONES:\n1️⃣ CONTACTAR ASESOR\n2️⃣ SABER HORARIOS\n3️⃣ SABER UBICACIONES`
+          }
+        }, {
+          headers: {
+            Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+            'Content-Type': 'application/json',
+          }
+        });
+      } catch (error) {
+        console.error("❌ Error al enviar mensaje:");
+        console.error(error.response?.data || error.message);
+      }
+
     }
   }
 
