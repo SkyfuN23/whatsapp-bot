@@ -15,13 +15,12 @@ const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
 // ✅ Formatea correctamente el número destinatario
 function formatPhoneNumber(number) {
-  if (number.startsWith('549') && number.length === 13) {
-    const codigoArea = number.slice(3, 6);
-    const resto = number.slice(6);
-    return `54${codigoArea}15${resto}`;
+  if (number.startsWith('54') && !number.startsWith('549')) {
+    return '549' + number.slice(2); // Reemplaza el 54 por 549
   }
   return number;
 }
+
 
 // 📌 Verifica si el mensaje contiene medidas válidas
 function calcularPresupuesto(texto) {
@@ -96,7 +95,7 @@ Respondé en menos de 40 palabras.
         `https://graph.facebook.com/v19.0/${PHONE_ID}/messages`,
         {
           messaging_product: 'whatsapp',
-          to:'542914414797',
+          to,
           type: 'text',
           text: { body: reply }
         },
